@@ -115,7 +115,7 @@ resource "aws_route53_record" "route53_to_cdn" {
   }
 }
 
-resource "aws_acm_certificate" cert {
+resource "aws_acm_certificate" "cert" {
   domain_name       = "${var.subdomain}"
   validation_method = "DNS"
 
