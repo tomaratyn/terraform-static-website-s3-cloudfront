@@ -114,3 +114,17 @@ resource "aws_route53_record" "route53_to_cdn" {
     evaluate_target_health = false
   }
 }
+
+resource "aws_acm_certificate" cert {
+  domain_name       = "${var.subdomain}"
+  validation_method = "DNS"
+
+  tags {
+    project = "${var.project}"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+}
