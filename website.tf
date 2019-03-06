@@ -1,17 +1,12 @@
 variable "aws_access_key_id" {}
 variable "aws_secret_key" {}
-variable "region" { default = "eu-west-1" }
+variable "region" { default = "us-west-1" }
 
-variable "domain" { default = "jevsejev.io" }
-variable "domainAlias" { default = "jevsejev_io" }
-variable "subdomain" { default = "www.jevsejev.io" }
-variable "subdomainAlias" { default = "www_jevsejev_io" }
-variable "cdnSubDomain" { default = "cdn.jevsejev.io" }
-
-variable "cf_alias_zone_id" {
-  description = "Fixed hardcoded constant zone_id that is used for all CloudFront distributions"
-  default = "Z2FDTNDATAQYW2"
-}
+variable "domain" {  }
+variable "subdomain" { }
+variable "cdnSubDomain" { }
+variable "zoneId" { }
+variable "project" { default = "hosting" }
 
 provider "aws" {
   alias = "prod"
@@ -45,16 +40,14 @@ POLICY
     index_document = "index.html"
     error_document = "404.html"
   }
-}
-
-resource "aws_route53_zone" "route53_zone" {
-  provider = "aws.prod"
-  name = "${var.domain}"
+  tags {
+    project = "${var.project}"
+  }
 }
 
 resource "aws_route53_record" "website_route53_record" {
   provider = "aws.prod"
-  zone_id = "${aws_route53_zone.route53_zone.zone_id}"
+  zone_id = "${var.zoneId}"
   name = "${var.subdomain}"
   type = "A"
 
@@ -63,6 +56,7 @@ resource "aws_route53_record" "website_route53_record" {
     zone_id = "${aws_s3_bucket.website_bucket.hosted_zone_id}"
     evaluate_target_health = false
   }
+
 }
 
 resource "aws_cloudfront_distribution" "cdn" {
@@ -72,12 +66,13 @@ resource "aws_cloudfront_distribution" "cdn" {
     domain_name = "${var.subdomain}.s3.amazonaws.com"
     origin_id = "website_bucket_origin"
     s3_origin_config {
+      origin_access_identity = ""
     }
   }
   enabled = true
   default_root_object = "index.html"
   aliases = ["${var.subdomain}"]
-  price_class = "PriceClass_200"
+  price_class = "PriceClass_100"
   retain_on_delete = true
   default_cache_behavior {
     allowed_methods = [ "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT" ]
@@ -102,17 +97,20 @@ resource "aws_cloudfront_distribution" "cdn" {
       restriction_type = "none"
     }
   }
+  tags {
+    project = "${var.project}"
+  }
 }
 
 resource "aws_route53_record" "route53_to_cdn" {
   provider = "aws.prod"
-  zone_id = "${aws_route53_zone.route53_zone.zone_id}"
+  zone_id = "${var.zoneId}"
   name = "${var.cdnSubDomain}"
   type = "A"
 
   alias {
     name = "${aws_cloudfront_distribution.cdn.domain_name}"
-    zone_id = "${var.cf_alias_zone_id}"
+    zone_id = "${aws_cloudfront_distribution.cdn.hosted_zone_id}"
     evaluate_target_health = false
   }
 }
